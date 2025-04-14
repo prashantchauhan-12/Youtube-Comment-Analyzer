@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Comment Sentiment Analyzer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .loading-container {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .comment-box {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .positive {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .negative {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+
+        .chart-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-badge {
+            cursor: pointer;
+        }
+
+        .filter-badge.active {
+            background-color: orangered !important;
+        }
+
+        .card-header {
+            background-color: #e44172 !important;
+        }
+
+        .btn-primary {
+            background-color: rgb(222, 58, 58) !important;
+        }
+
+        .extra {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="extra">
+
+                    </div>
+                    <div class="card-header bg-primary  text-white">
+                        <h3 class="mb-0">YouTube Comment Sentiment Analyzer</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="analyzeForm">
+                            <div class="mb-3">
+                                <label for="url" class="form-label">YouTube Video URL</label>
+                                <input type="text" class="form-control" id="url" name="url"
+                                    placeholder="https://www.youtube.com/watch?v=..." required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="max_comments" class="form-label">Maximum Comments to Analyze</label>
+                                <input type="number" class="form-control" id="max_comments" name="max_comments"
+                                    value="100" min="10" max="500">
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Analyze Comments</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="loading-container" id="loadingContainer" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing comments... This may take a minute.</p>
+                </div>
+
+                <div id="resultContainer" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h4 class="mb-0">Analysis Results: <span id="videoTitle"></span></h4>
+                        </div>
+                        <div class="card-body">
+                            <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="summary-tab" data-bs-toggle="tab"
+                                        data-bs-target="#summary" type="button" role="tab"
+                                        aria-selected="true">Summary</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="creator-tab" data-bs-toggle="tab"
+                                        data-bs-target="#creator" type="button" role="tab" aria-selected="false">Creator
+                                        Insights</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="comments-tab" data-bs-toggle="tab"
+                                        data-bs-target="#comments" type="button" role="tab" aria-selected="false">All
+                                        Comments</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content pt-3" id="resultTabsContent">
+                                <!-- Summary Tab -->
+                                <div class="tab-pane fade show active" id="summary" role="tabpanel"
+                                    aria-labelledby="summary-tab">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <h5>Sentiment Distribution</h5>
+                                                <img src="static/charts/sentiment_pie.png" id="sentimentPieChart"
+                                                    class="img-fluid" alt="Sentiment Distribution">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <h5>Polarity Distribution</h5>
+                                                <img src="static/charts/polarity_distribution.png" id="polarityChart"
+                                                    class="img-fluid" alt="Polarity Distribution">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card mt-3">
+                                        <div class="card-header">Comment Sentiment Summary</div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Overall Trend:</strong> <span id="overallTrend"></span>
+                                                    </p>
+                                                    <p><strong>Sentiment Ratio:</strong> <span
+                                                            id="sentimentRatio"></span></p>
+                                                    <p><strong>Average Sentiment Score:</strong> <span
+                                                            id="avgSentiment"></span></p>
+                                                    <p><strong>Total Comments:</strong> <span id="totalComments"></span>
+                                                    </p>
+                                                    <p><strong>Analyzed Comments:</strong> <span
+                                                            id="analyzedComments"></span></p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <strong>Top Positive Comment:</strong>
+                                                        <div class="comment-box positive" id="topPositiveComment"></div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong>Top Negative Comment:</strong>
+                                                        <div class="comment-box negative" id="topNegativeComment"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card mt-3">
+                                        <div class="card-header">Common Words</div>
+                                        <div class="card-body">
+                                            <div id="commonWords" class="d-flex flex-wrap gap-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Creator Insights Tab -->
+                                <div class="tab-pane fade" id="creator" role="tabpanel" aria-labelledby="creator-tab">
+                                    <div class="card mb-3">
+                                        <div class="card-header">Creator Summary</div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Sentiment Overview:</strong> <span
+                                                            id="sentimentOverview"></span></p>
+                                                    <p><strong>Engagement Level:</strong> <span
+                                                            id="engagementLevel"></span></p>
+                                                    <p><strong>Audience Alignment:</strong> <span
+                                                            id="audienceAlignment"></span></p>
+                                                    <p><strong>Content Feedback:</strong> <span
+                                                            id="contentFeedback"></span></p>
+                                                    <p><strong>Presentation Feedback:</strong> <span
+                                                            id="presentationFeedback"></span></p>
+                                                    <p><strong>Technical Feedback:</strong> <span
+                                                            id="technicalFeedback"></span></p>
+                                                    <p><strong>Engagement Indicators:</strong> <span
+                                                            id="engagementIndicators"></span></p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <strong>Improvement Suggestions:</strong>
+                                                        <ul id="improvementSuggestions" class="mb-3"></ul>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong>Viewer Praise:</strong>
+                                                        <ul id="viewerPraise"></ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card">
+                                                <div class="card-header">Positive Feedback Themes</div>
+                                                <div class="card-body">
+                                                    <ul id="positiveFeedback"></ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card">
+                                                <div class="card-header">Negative Feedback Themes</div>
+                                                <div class="card-body">
+                                                    <ul id="negativeFeedback"></ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Comments Tab -->
+                                <div class="tab-pane fade" id="comments" role="tabpanel" aria-labelledby="comments-tab">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <button class="btn btn-sm btn-success" id="downloadCsv">Download as
+                                                CSV</button>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <button class="btn btn-sm btn-secondary" id="resetFilters">Reset
+                                                Filters</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Sentiment Filter -->
+                                    <div class="card mb-3">
+                                        <div class="card-header">Filter by Sentiment</div>
+                                        <div class="card-body">
+                                            <div class="d-flex gap-2">
+                                                <span class="badge bg-secondary filter-badge"
+                                                    data-sentiment="all">All</span>
+                                                <span class="badge bg-success filter-badge"
+                                                    data-sentiment="Positive">Positive</span>
+                                                <span class="badge bg-danger filter-badge"
+                                                    data-sentiment="Negative">Negative</span>
+                                                <span class="badge bg-warning filter-badge"
+                                                    data-sentiment="Neutral">Neutral</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Word Filter -->
+                                    <div class="card mb-3">
+                                        <div class="card-header">Filter by Common Words</div>
+                                        <div class="card-body">
+                                            <div id="wordFilterContainer" class="d-flex flex-wrap gap-2"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="commentsTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Comment</th>
+                                                    <th>Author</th>
+                                                    <th>Sentiment</th>
+                                                    <th>Polarity</th>
+                                                    <th>Likes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="commentsBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const analyzeForm = document.getElementById('analyzeForm');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const resultContainer = document.getElementById('resultContainer');
+            const downloadCsvBtn = document.getElementById('downloadCsv');
+            const resetFiltersBtn = document.getElementById('resetFilters');
+
+            let currentVideoId = null;
+            let allComments = [];
+            let commonWords = [];
+
+            analyzeForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                // Show loading spinner and hide results if previously shown
+                loadingContainer.style.display = 'block';
+                resultContainer.style.display = 'none';
+
+                const formData = new FormData(analyzeForm);
+
+                fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(data.error);
+                            loadingContainer.style.display = 'none';
+                            return;
+                        }
+
+                        currentVideoId = data.video_id;
+
+                        // If analysis is already complete, get results immediately
+                        if (data.status === "Analysis complete") {
+                            getResults(currentVideoId);
+                        } else {
+                            // Otherwise, poll for results
+                            pollResults(currentVideoId);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred. Please try again.');
+                        loadingContainer.style.display = 'none';
+                    });
+            });
+
+            // Function to poll for results
+            function pollResults(videoId) {
+                const pollInterval = setInterval(() => {
+                    fetch(`/results/${videoId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "processing") {
+                                // Still processing, continue polling
+                                return;
+                            } else if (data.error) {
+                                clearInterval(pollInterval);
+                                alert(data.error);
+                                loadingContainer.style.display = 'none';
+                            } else {
+                                // Analysis complete, display results and stop polling
+                                clearInterval(pollInterval);
+                                displayResults(data);
+                            }
+                        })
+                        .catch(error => {
+                            clearInterval(pollInterval);
+                            console.error('Error:', error);
+                            alert('An error occurred while fetching results.');
+                            loadingContainer.style.display = 'none';
+                        });
+                }, 2000); // Poll every 2 seconds
+            }
+
+            // Function to get results directly
+            function getResults(videoId) {
+                fetch(`/results/${videoId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(data.error);
+                            loadingContainer.style.display = 'none';
+                        } else {
+                            displayResults(data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while fetching results.');
+                        loadingContainer.style.display = 'none';
+                    });
+            }
+
+            // Function to display results
+            function displayResults(data) {
+                loadingContainer.style.display = 'none';
+                resultContainer.style.display = 'block';
+
+                // Store all comments for filtering
+                allComments = data.results;
+                commonWords = data.common_words;
+
+                // Set video title
+                document.getElementById('videoTitle').textContent = data.title;
+
+                // Update charts with timestamps to prevent caching
+                const timestamp = new Date().getTime();
+                document.getElementById('sentimentPieChart').src = `static/charts/sentiment_pie.png?t=${timestamp}`;
+                document.getElementById('polarityChart').src = `static/charts/polarity_distribution.png?t=${timestamp}`;
+
+                // Summary tab data
+                const summary = data.summary;
+                const craterSummary = data.crater_summary;
+
+                document.getElementById('overallTrend').textContent = craterSummary.overall_trend;
+                document.getElementById('sentimentRatio').textContent = craterSummary.sentiment_ratio;
+                document.getElementById('avgSentiment').textContent = craterSummary.average_sentiment_score;
+                document.getElementById('totalComments').textContent = data.total_comments;
+                document.getElementById('analyzedComments').textContent = data.analyzed_comments;
+                document.getElementById('topPositiveComment').textContent = craterSummary.top_positive_comment;
+                document.getElementById('topNegativeComment').textContent = craterSummary.top_negative_comment;
+
+                // Common words
+                const commonWordsContainer = document.getElementById('commonWords');
+                commonWordsContainer.innerHTML = '';
+                data.common_words.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-1 mb-1';
+                    badge.textContent = `${item.word} (${item.count})`;
+                    commonWordsContainer.appendChild(badge);
+                });
+
+                // Set up word filters
+                setupWordFilters(data.common_words);
+
+                // Creator insights tab
+                const creatorSummary = data.creator_summary;
+                document.getElementById('sentimentOverview').textContent = creatorSummary.sentiment_overview;
+                document.getElementById('engagementLevel').textContent = creatorSummary.engagement_level;
+                document.getElementById('audienceAlignment').textContent = creatorSummary.audience_alignment;
+                document.getElementById('contentFeedback').textContent = creatorSummary.content_feedback;
+                document.getElementById('presentationFeedback').textContent = creatorSummary.presentation_feedback;
+                document.getElementById('technicalFeedback').textContent = creatorSummary.technical_feedback;
+                document.getElementById('engagementIndicators').textContent = creatorSummary.engagement_indicators;
+
+                // Improvement suggestions
+                const improvementList = document.getElementById('improvementSuggestions');
+                improvementList.innerHTML = '';
+                creatorSummary.improvement_suggestions.forEach(suggestion => {
+                    const li = document.createElement('li');
+                    li.textContent = suggestion;
+                    improvementList.appendChild(li);
+                });
+
+                // Viewer praise
+                const praiseList = document.getElementById('viewerPraise');
+                praiseList.innerHTML = '';
+                creatorSummary.viewer_praise.forEach(praise => {
+                    const li = document.createElement('li');
+                    li.textContent = praise;
+                    praiseList.appendChild(li);
+                });
+
+                // Positive and negative feedback themes
+                const positiveFeedbackList = document.getElementById('positiveFeedback');
+                positiveFeedbackList.innerHTML = '';
+                creatorSummary.positive_feedback.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.topic} (${item.count})`;
+                    positiveFeedbackList.appendChild(li);
+                });
+
+                const negativeFeedbackList = document.getElementById('negativeFeedback');
+                negativeFeedbackList.innerHTML = '';
+                creatorSummary.negative_feedback.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.topic} (${item.count})`;
+                    negativeFeedbackList.appendChild(li);
+                });
+
+                // Display comments with no filters initially
+                displayComments(allComments);
+
+                // Set the "All" sentiment filter as active
+                document.querySelector('.filter-badge[data-sentiment="all"]').classList.add('active');
+            }
+
+            // Function to set up word filters
+            function setupWordFilters(commonWords) {
+                const wordFilterContainer = document.getElementById('wordFilterContainer');
+                wordFilterContainer.innerHTML = '';
+
+                // Add "All Words" filter
+                const allWordsBadge = document.createElement('span');
+                allWordsBadge.className = 'badge bg-secondary filter-badge active';
+                allWordsBadge.setAttribute('data-word', 'all');
+                allWordsBadge.textContent = 'All Words';
+                wordFilterContainer.appendChild(allWordsBadge);
+
+                // Add individual word filters
+                commonWords.forEach(item => {
+                    const wordBadge = document.createElement('span');
+                    wordBadge.className = 'badge bg-secondary filter-badge';
+                    wordBadge.setAttribute('data-word', item.word);
+                    wordBadge.textContent = `${item.word} (${item.count})`;
+                    wordFilterContainer.appendChild(wordBadge);
+                });
+
+                // Add click event for word filters
+                wordFilterContainer.querySelectorAll('.filter-badge').forEach(badge => {
+                    badge.addEventListener('click', function () {
+                        // Remove active class from all word filter badges
+                        wordFilterContainer.querySelectorAll('.filter-badge').forEach(b => {
+                            b.classList.remove('active');
+                        });
+
+                        // Add active class to clicked badge
+                        this.classList.add('active');
+
+                        // Apply filters
+                        applyFilters();
+                    });
+                });
+            }
+
+            // Function to display filtered comments
+            function displayComments(comments) {
+                const commentsBody = document.getElementById('commentsBody');
+                commentsBody.innerHTML = '';
+
+                if (comments.length === 0) {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = 5;
+                    cell.textContent = 'No comments match the selected filters.';
+                    cell.className = 'text-center';
+                    row.appendChild(cell);
+                    commentsBody.appendChild(row);
+                    return;
+                }
+
+                comments.forEach(comment => {
+                    const row = document.createElement('tr');
+
+                    // Add sentiment class
+                    if (comment.sentiment === 'Positive') {
+                        row.className = 'table-success';
+                    } else if (comment.sentiment === 'Negative') {
+                        row.className = 'table-danger';
+                    } else {
+                        row.className = 'table-warning';
+                    }
+
+                    // Comment text cell
+                    const commentCell = document.createElement('td');
+                    commentCell.textContent = comment.comment;
+                    row.appendChild(commentCell);
+
+                    // Author cell
+                    const authorCell = document.createElement('td');
+                    authorCell.textContent = comment.author;
+                    row.appendChild(authorCell);
+
+                    // Sentiment cell
+                    const sentimentCell = document.createElement('td');
+                    sentimentCell.textContent = comment.sentiment;
+                    row.appendChild(sentimentCell);
+
+                    // Polarity cell
+                    const polarityCell = document.createElement('td');
+                    polarityCell.textContent = comment.polarity;
+                    row.appendChild(polarityCell);
+
+                    // Likes cell
+                    const likesCell = document.createElement('td');
+                    likesCell.textContent = comment.likes;
+                    row.appendChild(likesCell);
+
+                    commentsBody.appendChild(row);
+                });
+            }
+
+            // Function to apply both sentiment and word filters
+            function applyFilters() {
+                const activeSentimentFilter = document.querySelector('.filter-badge[data-sentiment].active');
+                const activeWordFilter = document.querySelector('.filter-badge[data-word].active');
+
+                const sentimentFilter = activeSentimentFilter ? activeSentimentFilter.getAttribute('data-sentiment') : 'all';
+                const wordFilter = activeWordFilter ? activeWordFilter.getAttribute('data-word') : 'all';
+
+                let filteredComments = allComments;
+
+                // Apply sentiment filter
+                if (sentimentFilter !== 'all') {
+                    filteredComments = filteredComments.filter(comment =>
+                        comment.sentiment === sentimentFilter
+                    );
+                }
+
+                // Apply word filter
+                if (wordFilter !== 'all') {
+                    filteredComments = filteredComments.filter(comment =>
+                        comment.comment.toLowerCase().includes(wordFilter.toLowerCase())
+                    );
+                }
+
+                // Display filtered comments
+                displayComments(filteredComments);
+            }
+
+            // Add event listeners for sentiment filters
+            document.querySelectorAll('.filter-badge[data-sentiment]').forEach(badge => {
+                badge.addEventListener('click', function () {
+                    // Remove active class from all sentiment filter badges
+                    document.querySelectorAll('.filter-badge[data-sentiment]').forEach(b => {
+                        b.classList.remove('active');
+                    });
+
+                    // Add active class to clicked badge
+                    this.classList.add('active');
+
+                    // Apply filters
+                    applyFilters();
+                });
+            });
+
+            // Reset filters button
+            resetFiltersBtn.addEventListener('click', function () {
+                // Reset sentiment filter
+                document.querySelectorAll('.filter-badge[data-sentiment]').forEach(b => {
+                    b.classList.remove('active');
+                });
+                document.querySelector('.filter-badge[data-sentiment="all"]').classList.add('active');
+
+                // Reset word filter
+                document.querySelectorAll('.filter-badge[data-word]').forEach(b => {
+                    b.classList.remove('active');
+                });
+                document.querySelector('.filter-badge[data-word="all"]').classList.add('active');
+
+                // Display all comments
+                displayComments(allComments);
+            });
+
+            // Download CSV button
+            downloadCsvBtn.addEventListener('click', function () {
+                window.location.href = '/download';
+            });
+        });
+    </script>
+</body>
+
+</html>
