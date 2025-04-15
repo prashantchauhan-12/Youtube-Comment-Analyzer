@@ -9,7 +9,7 @@ from googleapiclient.discovery import build
 from collections import Counter
 
 # Get API key from environment variable for security
-YOUTUBE_API_KEY = "AIzaSyCO3p461iaNZbGECphVjIORTUNpRb7TOSs"  # Temporary solution
+YOUTUBE_API_KEY = "your api key"  # Temporary solution
 app = Flask(__name__)
 
 # Create directories if they don't exist
